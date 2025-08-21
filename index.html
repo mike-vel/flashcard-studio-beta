@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard Studio (Beta)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .view {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .view.active {
+            display: block;
+        }
+        #review-list {
+            max-height: 16em;
+            overflow: auto;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .custom-focus-ring:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.6);
+        }
+        .modal {
+            display: none;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-body {
+            max-height: 80vh;
+            overflow: auto;
+        }
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col items-center min-h-screen p-4">
+
+    <div class="w-full max-w-3xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 text-center">Flashcard Studio (Beta)</h1>
+            <p class="text-center text-gray-500 mt-1">Create, study, and master your subjects.</p>
+        </header>
+
+        <div class="flex justify-center gap-4 mb-4 border-t border-b border-gray-200 py-3">
+            <button id="import-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Import Cards</button>
+            <input type="file" id="import-file-input" class="hidden" accept=".json">
+            <button id="export-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Export Cards</button>
+        </div>
+
+        <nav class="flex justify-center border-b border-gray-200 mb-6">
+            <button id="nav-create" class="nav-btn active-tab px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600">Create</button>
+            <button id="nav-review" class="nav-btn text-gray-500 px-4 py-2 font-semibold">Review Deck</button>
+            <button id="nav-later" class="nav-btn text-gray-500 px-4 py-2 font-semibold">For Later</button>
+        </nav>
+
+        <main>
+            <!-- Create Card View -->
+            <div id="create-view" class="view active">
+                <h2 class="text-xl font-semibold mb-4 text-center">Add a New Flashcard</h2>
+                <form id="create-form" class="space-y-4">
+                    <div>
+                        <label for="question" class="block text-sm font-medium text-gray-700">Question</label>
+                        <textarea id="question" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2" placeholder="e.g., What is the capital of Japan?"></textarea>
+                    </div>
+                    <div>
+                        <label for="question-type" class="block text-sm font-medium text-gray-700">Question Type</label>
+                        <select id="question-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2">
+                            <option value="identification">Identification</option>
+                            <option value="multiple-choice">Multiple Choice</option>
+                            <option value="enumeration">Enumeration</option>
+                        </select>
+                    </div>
+                    <div id="mc-options-container" class="hidden space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Answer Choices</label>
+                        <div id="mc-options-list" class="space-y-2"></div>
+                        <button type="button" id="add-option-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add another choice</button>
+                    </div>
+                    <div id="answer-container">
+                        <label for="answer" class="block text-sm font-medium text-gray-700">Correct Answer</label>
+                        <input type="text" id="answer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2" placeholder="e.g., Tokyo">
+                    </div>
+                    <div id="enum-items-container" class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Options</label>
+                            <div class="mt-1 block w-full sm:text-sm">
+                                <label for="enumeration-order">Enumerate in order? (W.I.P)</label>
+                                <input type="checkbox" id="enumeration-order"><br>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Correct Items</label>
+                            <div id="enum-items-list" class="space-y-2"></div>
+                            <button type="button" id="add-item-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add item</button>
+                        </div>
+                    </div>
+                    <div id="alternatives-container" class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Alternative Answers (Optional)</label>
+                        <div id="alternatives-list" class="space-y-2"></div>
+                        <button type="button" id="add-alternative-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add alternative</button>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">Add Card</button>
+                </form>
+            </div>
+
+            <!-- Review View -->
+            <div id="review-view" class="view">
+                 <div id="review-card-container" class="hidden text-center">
+                    <p id="review-progress" class="text-gray-500"></p>
+                    <div id="review-card" class="bg-gray-50 p-6 rounded-lg shadow-md min-h-[200px] flex items-center justify-center flex-col">
+                        <p id="review-question" class="text-lg font-medium"></p>
+                    </div>
+                    <div id="review-answer-area" class="mt-4"></div>
+                    <div id="feedback-message" class="mt-4 font-semibold"></div>
+                    <button id="submit-answer-btn" class="mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Submit Answer</button>
+                    <button id="next-card-btn" class="hidden mt-4 w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800">Next Card</button>
+                </div>
+                <div id="review-management-area">
+                    <h2 class="text-xl font-semibold mb-4 text-center">Review Deck Management</h2>
+                    <div id="review-list" class="space-y-2"></div>
+                    <div class="text-center py-4">
+                        <p id="review-list-placeholder" class="text-gray-500">No cards to review. Create some first!</p>
+                        <button type="button" class="add-card text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add card</button>
+                    </div>
+                    <button id="start-review-btn" class="hidden mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Start Review Session</button>
+                </div>
+            </div>
+
+            <!-- For Later View -->
+            <div id="later-view" class="view">
+                <h2 class="text-xl font-semibold mb-4 text-center">Cards Mastered (For Later Review)</h2>
+                <div id="later-list" class="space-y-2"></div>
+                <div id="later-placeholder" class="text-center text-gray-500 py-4">
+                    <p>Correctly answered cards will appear here.</p>
+                </div>
+                 <button id="review-later-btn" class="hidden mt-6 w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700">Review These Again</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4 overflow-y-auto">
+        <div class="modal-body bg-white rounded-lg shadow-xl p-6 w-full max-w-lg my-8">
+            <h2 class="text-xl font-bold mb-4">Edit Flashcard</h2>
+            <form id="edit-form" class="space-y-4">
+                <input type="hidden" id="edit-card-id">
+                <input type="hidden" id="edit-card-source">
+                <div>
+                    <label for="edit-question" class="block text-sm font-medium text-gray-700">Question</label>
+                    <textarea id="edit-question" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2"></textarea>
+                </div>
+                <div>
+                    <label for="edit-question-type" class="block text-sm font-medium text-gray-700">Question Type</label>
+                    <select id="edit-question-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2">
+                        <option value="identification">Identification</option>
+                        <option value="multiple-choice">Multiple Choice</option>
+                        <option value="enumeration">Enumeration</option>
+                    </select>
+                </div>
+                <div id="edit-mc-options-container" class="hidden space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Answer Choices</label>
+                    <div id="edit-mc-options-list" class="space-y-2"></div>
+                    <button type="button" id="edit-add-option-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add another choice</button>
+                </div>
+                <div id="edit-answer-container">
+                    <label for="edit-answer" class="block text-sm font-medium text-gray-700">Correct Answer</label>
+                    <input type="text" id="edit-answer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2">
+                </div>
+                <div id="edit-enum-items-container" class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Options</label>
+                        <div class="mt-1 block w-full sm:text-sm">
+                            <label for="edit-enumeration-order">Enumerate in order? (W.I.P)</label>
+                            <input type="checkbox" id="edit-enumeration-order"><br>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Correct Items</label>
+                        <div id="edit-enum-items-list" class="space-y-2"></div>
+                        <button type="button" id="edit-add-item-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add item</button>
+                    </div>
+                </div>
+                <div id="edit-alternatives-container" class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Alternative Answers (Optional)</label>
+                    <div id="edit-alternatives-list" class="space-y-2"></div>
+                    <button type="button" id="edit-add-alternative-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add alternative</button>
+                </div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" id="cancel-edit-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Confirm Remove Modal -->
+    <div id="confirm-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4">
+        <div class="modal-body bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+            <h2 class="text-xl font-bold mb-4">Are you sure?</h2>
+            <p class="text-gray-600 mb-6">This action cannot be undone.</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancel-remove-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button id="confirm-remove-btn" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700">Remove</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            let flashcards = [];
+            let forLater = [];
+            let currentCardIndex = 0;
+            let answeredItems = { correct: true, items: [] };
+            let currentReviewDeck = [];
+            let cardToRemove = { id: null, source: null };
+
+            // --- DOM ELEMENTS ---
+            const navCreate = [document.getElementById('nav-create'), document.querySelector('.add-card')];
+            const navReview = document.getElementById('nav-review');
+            const navLater = document.getElementById('nav-later');
+            const views = document.querySelectorAll('.view');
+            
+            // Create View
+            const createForm = document.getElementById('create-form');
+            const questionInput = document.getElementById('question');
+            const questionTypeSelect = document.getElementById('question-type');
+            const mcOptionsContainer = document.getElementById('mc-options-container');
+            const mcOptionsList = document.getElementById('mc-options-list');
+            const addOptionBtn = document.getElementById('add-option-btn');
+            const answerInput = document.getElementById('answer');
+            const answerItemContainers = {
+                answerElem: document.getElementById('answer-container'),
+                itemsElem: document.getElementById('enum-items-container')
+            };
+            const enumItemsList = document.getElementById('enum-items-list');
+            const addItemBtn = document.getElementById('add-item-btn');
+            const alternativesContainer = document.getElementById('alternatives-container');
+            const alternativesList = document.getElementById('alternatives-list');
+            const addAlternativeBtn = document.getElementById('add-alternative-btn');
+
+            // Review View & Session
+            const reviewManagementArea = document.getElementById('review-management-area');
+            const reviewList = document.getElementById('review-list');
+            const reviewListPlaceholder = document.getElementById('review-list-placeholder');
+            const startReviewBtn = document.getElementById('start-review-btn');
+            const reviewCardContainer = document.getElementById('review-card-container');
+            const reviewProgress = document.getElementById('review-progress');
+            const reviewQuestion = document.getElementById('review-question');
+            const reviewAnswerArea = document.getElementById('review-answer-area');
+            const submitAnswerBtn = document.getElementById('submit-answer-btn');
+            const nextCardBtn = document.getElementById('next-card-btn');
+            const feedbackMessage = document.getElementById('feedback-message');
+
+            // Later View
+            const laterList = document.getElementById('later-list');
+            const laterPlaceholder = document.getElementById('later-placeholder');
+            const reviewLaterBtn = document.getElementById('review-later-btn');
+
+            // Import/Export
+            const importBtn = document.getElementById('import-btn');
+            const importFileInput = document.getElementById('import-file-input');
+            const exportBtn = document.getElementById('export-btn');
+            
+            // Edit Modal
+            const editModal = document.getElementById('edit-modal');
+            const editForm = document.getElementById('edit-form');
+            const cancelEditBtn = document.getElementById('cancel-edit-btn');
+            const editCardId = document.getElementById('edit-card-id');
+            const editCardSource = document.getElementById('edit-card-source');
+            const editQuestion = document.getElementById('edit-question');
+            const editQuestionType = document.getElementById('edit-question-type');
+            const editMcOptionsContainer = document.getElementById('edit-mc-options-container');
+            const editMcOptionsList = document.getElementById('edit-mc-options-list');
+            const editAddOptionBtn = document.getElementById('edit-add-option-btn');
+            const editAnswer = document.getElementById('edit-answer');
+            const editAnswerItemContainers = {
+                answerElem: document.getElementById('edit-answer-container'),
+                itemsElem: document.getElementById('edit-enum-items-container')
+            };
+            const editEnumItemsList = document.getElementById('edit-enum-items-list');
+            const editAddItemBtn = document.getElementById('edit-add-item-btn');
+            const editAlternativesContainer = document.getElementById('edit-alternatives-container');
+            const editAlternativesList = document.getElementById('edit-alternatives-list');
+            const editAddAlternativeBtn = document.getElementById('edit-add-alternative-btn');
+
+            // Confirm Modal
+            const confirmModal = document.getElementById('confirm-modal');
+            const cancelRemoveBtn = document.getElementById('cancel-remove-btn');
+            const confirmRemoveBtn = document.getElementById('confirm-remove-btn');
+
+            // --- NAVIGATION ---
+            function switchView(viewId) {
+                views.forEach(view => view.classList.remove('active'));
+                document.getElementById(viewId).classList.add('active');
+                const navButtons = document.querySelectorAll('.nav-btn');
+                navButtons.forEach(btn => {
+                    btn.classList.remove('active-tab', 'text-blue-600', 'border-blue-600');
+                    btn.classList.add('text-gray-500');
+                });
+                const activeBtn = document.getElementById(`nav-${viewId.split('-')[0]}`);
+                activeBtn.classList.add('active-tab', 'text-blue-600', 'border-blue-600');
+                activeBtn.classList.remove('text-gray-500');
+                if (viewId === 'review-view') {
+                    reviewManagementArea.style.display = 'block';
+                    reviewCardContainer.classList.add('hidden');
+                    renderReviewList();
+                } else if (viewId === 'later-view') {
+                    renderLaterList();
+                }
+            }
+            navCreate.forEach(item => item.addEventListener('click', () => switchView('create-view')));
+            navReview.addEventListener('click', () => switchView('review-view'));
+            navLater.addEventListener('click', () => switchView('later-view'));
+
+            // --- DYNAMIC INPUT LISTS (MC & Alternatives) ---
+            function createDynamicInput(list, value, placeholderPrefix) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'input-wrapper';
+                const newInput = document.createElement('input');
+                newInput.type = 'text';
+                newInput.className = 'dynamic-input flex-grow mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2';
+                newInput.value = value;
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.className = 'text-red-500 font-bold text-2xl hover:text-red-700';
+                removeBtn.onclick = () => {
+                    // Prevent removing below minimum of 2 for MC questions
+                    if (placeholderPrefix === 'Choice' && list.children.length <= 2) {
+                        alert("A multiple choice question must have at least two choices.");
+                    } else if (placeholderPrefix === 'Item' && list.children.length <= 1) {
+                        alert("An enumeration question must have at least one item.");
+                    }  else {
+                        wrapper.remove();
+                        updateInputPlaceholders(list, placeholderPrefix);
+                    }
+                };
+                wrapper.appendChild(newInput);
+                wrapper.appendChild(removeBtn);
+                list.appendChild(wrapper);
+            }
+
+            function updateInputPlaceholders(list, placeholderPrefix) {
+                const inputs = list.querySelectorAll('.dynamic-input');
+                inputs.forEach((input, index) => {
+                    input.placeholder = `${placeholderPrefix} ${index + 1}`;
+                });
+            }
+
+            function setupDynamicList(list, addBtn, placeholderPrefix, initialItems = []) {
+                list.innerHTML = '';
+                initialItems.forEach(item => createDynamicInput(list, item, placeholderPrefix));
+                updateInputPlaceholders(list, placeholderPrefix);
+                addBtn.onclick = () => {
+                    createDynamicInput(list, "", placeholderPrefix);
+                    updateInputPlaceholders(list, placeholderPrefix);
+                };
+            }
+
+            // --- CARD CREATION ---
+            function toggleQuestionTypeFields(type, mcContainer, altContainer, enumContainer) {
+                const isMc = type === 'multiple-choice';
+                mcContainer.classList.toggle('hidden', !isMc);
+                altContainer.classList.toggle('hidden', type !== 'identification');
+
+                // If enumeration is selected, show enumeration list & hide answers
+                const isEnum = type === 'enumeration';
+                enumContainer.answerElem.classList.toggle('hidden', isEnum);
+                enumContainer.itemsElem.classList.toggle('hidden', !isEnum);
+            }
+
+            questionTypeSelect.addEventListener('change', () => toggleQuestionTypeFields(
+                questionTypeSelect.value, mcOptionsContainer, alternativesContainer, answerItemContainers));
+            editQuestionType.addEventListener('change', () => toggleQuestionTypeFields(
+                editQuestionType.value, editMcOptionsContainer, editAlternativesContainer, editAnswerItemContainers));
+
+            createForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const question = questionInput.value.trim();
+                const type = questionTypeSelect.value;
+
+                // Correct answer
+                let answer;
+                if (type === 'enumeration') {
+                    answer = [...answerItemContainers.itemsElem.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
+                    if (!question || answer.length < 1) {
+                        alert('Please fill in the question and answer.'); return;
+                    }
+                    
+                    // Check for duplicates
+                    let sortedAnswer = [...answer].sort();
+                    for (let i = 1; i < answer.length; i++) {
+                        if (sortedAnswer[i - 1] === sortedAnswer[i]) {
+                            alert('Make sure that there are no duplicates.'); return;
+                        }
+                    }
+                } else {
+                    answer = answerInput.value.trim();
+                    if (!question || !answer) {
+                        alert('Please fill in the question and answer.'); return;
+                    }
+                }
+
+                const newCard = { id: Date.now(), question, type, answer, alternatives: [] };
+                if (type === 'multiple-choice') {
+                    const options = [...mcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
+                    if (options.length < 2) { alert('Please provide at least two choices.'); return; }
+                    if (!options.includes(answer)) { alert('The correct answer must be one of the choices.'); return; }
+                    newCard.options = options;
+                } else if (type === 'identification') {
+                    newCard.alternatives = [...alternativesList.querySelectorAll('.dynamic-input')].map(alt => alt.value.trim()).filter(Boolean);
+                }
+                flashcards.push(newCard);
+                alert('Flashcard created!');
+                createForm.reset();
+                toggleQuestionTypeFields('identification', mcOptionsContainer, alternativesContainer, answerItemContainers);
+                setupDynamicList(mcOptionsList, addOptionBtn, 'Choice', ["", ""]);
+                setupDynamicList(enumItemsList, addItemBtn, 'Item', [""]);
+                setupDynamicList(alternativesList, addAlternativeBtn, 'Alternative', []);
+                renderReviewList();
+            });
+
+            // --- CARD LIST RENDERING & MANAGEMENT ---
+            function renderReviewList() {
+                renderCardList(flashcards, reviewList, reviewListPlaceholder, 'flashcards');
+                startReviewBtn.classList.toggle('hidden', flashcards.length === 0);
+            }
+            function renderLaterList() {
+                renderCardList(forLater, laterList, laterPlaceholder, 'forLater');
+                reviewLaterBtn.classList.toggle('hidden', forLater.length === 0);
+            }
+            function renderCardList(cardArray, listElement, placeholder, source) {
+                listElement.innerHTML = '';
+                if (cardArray.length === 0) {
+                    placeholder.style.display = 'block'; return;
+                }
+                placeholder.style.display = 'none';
+                cardArray.forEach(card => {
+                    const cardEl = document.createElement('div');
+                    cardEl.className = 'bg-gray-50 p-3 rounded-lg border border-gray-200 flex justify-between items-center';
+                    const questionText = document.createElement('p');
+                    questionText.textContent = card.question;
+                    questionText.className = 'truncate mr-4';
+                    const buttonsDiv = document.createElement('div');
+                    buttonsDiv.className = 'flex-shrink-0 flex gap-2';
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = 'Edit';
+                    editBtn.className = 'text-sm font-medium text-blue-600 hover:text-blue-800';
+                    editBtn.onclick = () => openEditModal(card.id, source);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.textContent = 'Remove';
+                    removeBtn.className = 'text-sm font-medium text-red-600 hover:text-red-800';
+                    removeBtn.onclick = () => openConfirmModal(card.id, source);
+                    buttonsDiv.appendChild(editBtn);
+                    buttonsDiv.appendChild(removeBtn);
+                    cardEl.appendChild(questionText);
+                    cardEl.appendChild(buttonsDiv);
+                    listElement.appendChild(cardEl);
+                });
+            }
+
+            // --- REVIEW SESSION ---
+            startReviewBtn.addEventListener('click', startReview);
+            function startReview() {
+                currentReviewDeck = [...flashcards].sort(() => Math.random() - 0.5);
+                currentCardIndex = 0;
+                answeredItems = { correct: true, items: [] };
+                reviewManagementArea.style.display = 'none';
+                reviewCardContainer.classList.remove('hidden');
+                displayCard();
+            }
+            function displayCard() {
+                if (currentCardIndex >= currentReviewDeck.length) { endReviewSession(); return; }
+                const card = currentReviewDeck[currentCardIndex];
+                reviewProgress.textContent = (currentCardIndex + 1) + " / " + currentReviewDeck.length;
+                reviewQuestion.textContent = card.question;
+                reviewAnswerArea.innerHTML = '';
+                feedbackMessage.textContent = '';
+                feedbackMessage.className = 'mt-4 font-semibold';
+
+                if (card.type !== 'multiple-choice') {
+                    // For identification and enumeration
+                    reviewAnswerArea.innerHTML = `<input type="text" id="user-answer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2" placeholder="Type your answer here...">`;
+
+                    // Check answer if the user presses enter key
+                    document.getElementById('user-answer').addEventListener('keydown', function(event) {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            if (!submitAnswerBtn.classList.contains("hidden")) {
+                                // Check answer
+                                checkAnswer();
+                            } else {
+                                // Next card
+                                currentCardIndex++;
+                                answeredItems = { correct: true, items: [] };
+                                displayCard();
+                            }
+                        }
+                    });
+                } else {
+                    const shuffledOptions = [...card.options].sort(() => Math.random() - 0.5);
+                    let optionsHTML = '<div class="space-y-2">';
+                    shuffledOptions.forEach((option, index) => {
+                        optionsHTML += `<div class="flex items-center"><input id="mc-${index}" name="mc-answer" type="radio" value="${option}" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"><label for="mc-${index}" class="ml-3 block text-sm font-medium text-gray-700">${option}</label></div>`;
+                    });
+                    optionsHTML += '</div>';
+                    reviewAnswerArea.innerHTML = optionsHTML;
+                }
+                submitAnswerBtn.classList.remove('hidden');
+                nextCardBtn.classList.add('hidden');
+            }
+            submitAnswerBtn.addEventListener('click', checkAnswer);
+            nextCardBtn.addEventListener('click', () => { currentCardIndex++; answeredItems = { correct: true, items: [] }; displayCard(); });
+            function checkAnswer() {
+                const card = currentReviewDeck[currentCardIndex];
+                let userAnswer;
+                if (card.type !== 'multiple-choice') {
+                    // For identification and enumeration
+                    userAnswer = document.getElementById('user-answer').value.trim();
+                } else {
+                    const checkedRadio = document.querySelector('input[name="mc-answer"]:checked');
+                    userAnswer = checkedRadio ? checkedRadio.value : '';
+                }
+                if (!userAnswer) { alert("Please provide an answer."); return; }
+                if (card.type === 'enumeration' && answeredItems.items.includes(userAnswer.toLowerCase())) {
+                    alert(`${userAnswer} is already there.`); return;
+                }
+                
+                let isCorrect = false;
+                if (card.type === 'identification') {
+                    const allAnswers = [card.answer, ...(card.alternatives || [])].map(a => a.toLowerCase());
+                    isCorrect = allAnswers.includes(userAnswer.toLowerCase());
+                } else if (card.type === 'enumeration') {
+                    answeredItems.items.push(userAnswer.toLowerCase());
+                    isCorrect = card.answer.map(a => a.toLowerCase()).includes(userAnswer.toLowerCase());
+
+                    // Show if answer is correct or incorrect
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'inline-block bg-gray-50 m-1 p-1 rounded-md border border-gray-200';
+                    if (isCorrect) {
+                        wrapper.textContent = `✅ ${userAnswer}`;
+                        wrapper.classList.add('text-green-600');
+                    } else {
+                        let correctAnswerText = card.answer;
+                        if (card.type === 'identification' && card.alternatives && card.alternatives.length > 0) {
+                            correctAnswerText = [card.answer, ...card.alternatives].join(' / ');
+                        }
+                        wrapper.textContent = `❌ ${userAnswer}`;
+                        wrapper.classList.add('text-red-600');
+
+                        // Mark enumeration question as wrong
+                        answeredItems.correct = false;
+                    }
+                    
+                    feedbackMessage.appendChild(wrapper);
+
+                    if (answeredItems.items.length >= card.answer.length) {
+                        const wrapper = document.createElement('div');
+                        if (answeredItems.correct) {
+                            wrapper.textContent = "✅ All correct! Great job!";
+                            wrapper.classList.add('text-green-600');
+
+                            const cardToMoveIndex = flashcards.findIndex(fc => fc.id === card.id);
+                            if(cardToMoveIndex > -1) {
+                                forLater.push(flashcards[cardToMoveIndex]);
+                                flashcards.splice(cardToMoveIndex, 1);
+                            }
+                        } else {
+                            let correctAnswerText = card.answer.join(', ');
+                            wrapper.textContent = `❌ Not quite. The correct answers are: ${correctAnswerText}`;
+                            wrapper.classList.add('text-red-600');
+                        }
+                        feedbackMessage.appendChild(wrapper);
+
+                        submitAnswerBtn.classList.add('hidden');
+                        nextCardBtn.classList.remove('hidden');
+                    } else {
+                        // Clear input
+                        document.getElementById('user-answer').value = "";
+                    }
+                    return;
+                } else {
+                    isCorrect = userAnswer === card.answer;
+                }
+
+                if (isCorrect) {
+                    feedbackMessage.textContent = "✅ Correct! Great job!";
+                    feedbackMessage.classList.add('text-green-600');
+                    const cardToMoveIndex = flashcards.findIndex(fc => fc.id === card.id);
+                    if(cardToMoveIndex > -1) {
+                        forLater.push(flashcards[cardToMoveIndex]);
+                        flashcards.splice(cardToMoveIndex, 1);
+                    }
+                } else {
+                    let correctAnswerText = card.answer;
+                    if (card.type === 'identification' && card.alternatives && card.alternatives.length > 0) {
+                        correctAnswerText = [card.answer, ...card.alternatives].join(' / ');
+                    }
+                    feedbackMessage.textContent = `❌ Not quite. The correct answer is: ${correctAnswerText}`;
+                    feedbackMessage.classList.add('text-red-600');
+                }
+                submitAnswerBtn.classList.add('hidden');
+                nextCardBtn.classList.remove('hidden');
+            }
+            function endReviewSession() {
+                reviewManagementArea.style.display = 'block';
+                reviewCardContainer.classList.add('hidden');
+                renderReviewList();
+                renderLaterList();
+            }
+
+            // --- "FOR LATER" & IMPORT/EXPORT ---
+            reviewLaterBtn.addEventListener('click', () => {
+                flashcards = [...flashcards, ...forLater];
+                forLater = [];
+                renderLaterList();
+                renderReviewList();
+                alert("Cards moved back to the main review deck.");
+                switchView('review-view');
+            });
+            importBtn.addEventListener('click', () => importFileInput.click());
+            exportBtn.addEventListener('click', () => {
+                if (flashcards.length === 0 && forLater.length === 0) { alert("No cards to export."); return; }
+                const data = JSON.stringify({ flashcards, forLater }, null, 2);
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'flashcards.json'; a.click();
+                URL.revokeObjectURL(url);
+            });
+            importFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (Array.isArray(data.flashcards) && Array.isArray(data.forLater)) {
+                            flashcards = data.flashcards;
+                            forLater = data.forLater;
+                            renderReviewList(); renderLaterList();
+                            alert('Flashcards imported successfully!');
+                        } else { alert('Invalid JSON file format.'); }
+                    } catch (error) { alert('Error reading or parsing the file.'); }
+                };
+                reader.readAsText(file);
+                importFileInput.value = '';
+            });
+
+            // --- MODALS (EDIT & CONFIRM) ---
+            function openEditModal(id, source) {
+                const sourceArray = source === 'flashcards' ? flashcards : forLater;
+                const card = sourceArray.find(c => c.id === id);
+                if (!card) return;
+                editCardId.value = id;
+                editCardSource.value = source;
+                editQuestion.value = card.question;
+                editQuestionType.value = card.type;
+
+                // Display answer
+                if (card.type === 'enumeration') {
+                    setupDynamicList(editEnumItemsList, editAddItemBtn, 'Item', card.answer || [""]);
+                } else {
+                    editAnswer.value = card.answer;
+                }
+
+                toggleQuestionTypeFields(card.type, editMcOptionsContainer, editAlternativesContainer, editAnswerItemContainers);
+                if (card.type === 'multiple-choice') {
+                    setupDynamicList(editMcOptionsList, editAddOptionBtn, 'Choice', card.options || ["", ""]);
+                } else if (card.type === 'identification') {
+                    setupDynamicList(editAlternativesList, editAddAlternativeBtn, 'Alternative', card.alternatives || []);
+                }
+                editModal.classList.add('active');
+            }
+            cancelEditBtn.addEventListener('click', () => editModal.classList.remove('active'));
+            editForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const id = parseInt(editCardId.value);
+                const source = editCardSource.value;
+                const sourceArray = source === 'flashcards' ? flashcards : forLater;
+                const cardIndex = sourceArray.findIndex(c => c.id === id);
+                if (cardIndex === -1) return;
+                const updatedCard = { ...sourceArray[cardIndex] };
+                updatedCard.question = editQuestion.value.trim();
+                updatedCard.type = editQuestionType.value;
+
+                // Update answers
+                if (updatedCard.type === 'enumeration') {
+                    updatedCard.answer = [...editAnswerItemContainers.itemsElem.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
+                } else {
+                    updatedCard.answer = editAnswer.value.trim();
+                }
+
+                updatedCard.alternatives = [];
+                delete updatedCard.options;
+                if (updatedCard.type === 'multiple-choice') {
+                    const options = [...editMcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
+                    if (options.length < 2) { alert('Please provide at least two choices.'); return; }
+                    if (!options.includes(updatedCard.answer)) { alert('The correct answer must be one of the choices.'); return; }
+                    updatedCard.options = options;
+                } else if (updatedCard.type === 'identification') {
+                    updatedCard.alternatives = [...editAlternativesList.querySelectorAll('.dynamic-input')].map(alt => alt.value.trim()).filter(Boolean);
+                }
+                sourceArray[cardIndex] = updatedCard;
+                editModal.classList.remove('active');
+                if (source === 'flashcards') renderReviewList(); else renderLaterList();
+            });
+            function openConfirmModal(id, source) {
+                cardToRemove = { id, source };
+                confirmModal.classList.add('active');
+            }
+            cancelRemoveBtn.addEventListener('click', () => confirmModal.classList.remove('active'));
+            confirmRemoveBtn.addEventListener('click', () => {
+                const { id, source } = cardToRemove;
+                if (source === 'flashcards') {
+                    flashcards = flashcards.filter(c => c.id !== id);
+                    renderReviewList();
+                } else {
+                    forLater = forLater.filter(c => c.id !== id);
+                    renderLaterList();
+                }
+                confirmModal.classList.remove('active');
+            });
+
+            // --- INITIALIZE ---
+            toggleQuestionTypeFields('identification', mcOptionsContainer, alternativesContainer, answerItemContainers);
+            setupDynamicList(mcOptionsList, addOptionBtn, 'Choice', ["", ""]);
+            setupDynamicList(enumItemsList, addItemBtn, 'Item', [""]);
+            setupDynamicList(alternativesList, addAlternativeBtn, 'Alternative', []);
+
+            setupDynamicList(editMcOptionsList, editAddOptionBtn, 'Choice', ["", ""]);
+            setupDynamicList(editEnumItemsList, editAddItemBtn, 'Item', [""]);
+            setupDynamicList(editAlternativesList, editAddAlternativeBtn, 'Alternative', []);
+            switchView('create-view');
+        });
+    </script>
+</body>
+</html>
