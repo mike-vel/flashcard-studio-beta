@@ -44,6 +44,15 @@
             align-items: center;
             gap: 0.5rem;
         }
+
+        /* Toggle Switch CSS */
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #2563eb; }
+        input:focus + .slider { box-shadow: 0 0 1px #2563eb; }
+        input:checked + .slider:before { transform: translateX(26px); }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex flex-col items-center min-h-screen p-4">
@@ -67,7 +76,6 @@
         </nav>
 
         <main>
-            <!-- Create Card View -->
             <div id="create-view" class="view active">
                 <h2 class="text-xl font-semibold mb-4 text-center">Add a New Flashcard</h2>
                 <form id="create-form" class="space-y-4">
@@ -95,9 +103,9 @@
                     <div id="enum-items-container" class="space-y-4">
                         <div class="space-y-2">
                             <label class="block text-sm font-medium text-gray-700">Options</label>
-                            <div class="mt-1 block w-full sm:text-sm">
-                                <label for="enumeration-order">Enumerate in order? (W.I.P)</label>
-                                <input type="checkbox" id="enumeration-order"><br>
+                            <div class="flex space-x-2 items-center sm:text-sm">
+                                <label class="switch"><input type="checkbox" id="enumeration-order"><span class="slider"></span></label>
+                                <label for="enumeration-order">Enumerate in order?</label>
                             </div>
                         </div>
                         <div>
@@ -115,7 +123,6 @@
                 </form>
             </div>
 
-            <!-- Review View -->
             <div id="review-view" class="view">
                  <div id="review-card-container" class="hidden text-center">
                     <p id="review-progress" class="text-gray-500"></p>
@@ -138,7 +145,6 @@
                 </div>
             </div>
 
-            <!-- For Later View -->
             <div id="later-view" class="view">
                 <h2 class="text-xl font-semibold mb-4 text-center">Cards Mastered (For Later Review)</h2>
                 <div id="later-list" class="space-y-2"></div>
@@ -150,7 +156,6 @@
         </main>
     </div>
 
-    <!-- Edit Modal -->
     <div id="edit-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4 overflow-y-auto">
         <div class="modal-body bg-white rounded-lg shadow-xl p-6 w-full max-w-lg my-8">
             <h2 class="text-xl font-bold mb-4">Edit Flashcard</h2>
@@ -181,9 +186,9 @@
                 <div id="edit-enum-items-container" class="space-y-4">
                     <div class="space-y-2">
                         <label class="block text-sm font-medium text-gray-700">Options</label>
-                        <div class="mt-1 block w-full sm:text-sm">
-                            <label for="edit-enumeration-order">Enumerate in order? (W.I.P)</label>
-                            <input type="checkbox" id="edit-enumeration-order"><br>
+                        <div class="flex space-x-2 items-center sm:text-sm">
+                            <label class="switch"><input type="checkbox" id="edit-enumeration-order"><span class="slider"></span></label>
+                            <label for="edit-enumeration-order">Enumerate in order?</label>
                         </div>
                     </div>
                     <div>
@@ -205,7 +210,6 @@
         </div>
     </div>
     
-    <!-- Confirm Remove Modal -->
     <div id="confirm-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4">
         <div class="modal-body bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
             <h2 class="text-xl font-bold mb-4">Are you sure?</h2>
@@ -395,27 +399,35 @@
 
                 // Correct answer
                 let answer;
+                const newCard = { id: Date.now(), question, type, alternatives: [] };
+
                 if (type === 'enumeration') {
                     answer = [...answerItemContainers.itemsElem.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
                     if (!question || answer.length < 1) {
-                        alert('Please fill in the question and answer.'); return;
+                        alert('Please fill in the question and at least one item.'); return;
                     }
                     
-                    // Check for duplicates
-                    let sortedAnswer = [...answer].sort();
-                    for (let i = 1; i < answer.length; i++) {
-                        if (sortedAnswer[i - 1] === sortedAnswer[i]) {
-                            alert('Make sure that there are no duplicates.'); return;
+                    let isOrdered = document.getElementById('enumeration-order').checked;
+
+                    // Check for duplicates if not ordered
+                    if (!isOrdered) {
+                        let sortedAnswer = [...answer].sort();
+                        for (let i = 1; i < answer.length; i++) {
+                            if (sortedAnswer[i - 1] === sortedAnswer[i]) {
+                                alert('Make sure that there are no duplicate items.'); return;
+                            }
                         }
                     }
+                    newCard.answer = answer;
+                    newCard.ordered = isOrdered;
                 } else {
                     answer = answerInput.value.trim();
                     if (!question || !answer) {
                         alert('Please fill in the question and answer.'); return;
                     }
+                    newCard.answer = answer;
                 }
 
-                const newCard = { id: Date.now(), question, type, answer, alternatives: [] };
                 if (type === 'multiple-choice') {
                     const options = [...mcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
                     if (options.length < 2) { alert('Please provide at least two choices.'); return; }
@@ -429,7 +441,7 @@
                 createForm.reset();
                 toggleQuestionTypeFields('identification', mcOptionsContainer, alternativesContainer, answerItemContainers);
                 setupDynamicList(mcOptionsList, addOptionBtn, 'Choice', ["", ""]);
-                setupDynamicList(enumItemsList, addItemBtn, 'Item', [""]);
+                setupDynamicList(enumItemsList, addItemBtn, 'Item', ["", "", ""]);
                 setupDynamicList(alternativesList, addAlternativeBtn, 'Alternative', []);
                 renderReviewList();
             });
@@ -489,12 +501,18 @@
                 reviewProgress.textContent = (currentCardIndex + 1) + " / " + currentReviewDeck.length;
                 reviewQuestion.textContent = card.question;
                 reviewAnswerArea.innerHTML = '';
-                feedbackMessage.textContent = '';
+                feedbackMessage.innerHTML = ''; // Use innerHTML to clear divs
                 feedbackMessage.className = 'mt-4 font-semibold';
 
                 if (card.type !== 'multiple-choice') {
                     // For identification and enumeration
-                    reviewAnswerArea.innerHTML = `<input type="text" id="user-answer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2" placeholder="Type your answer here...">`;
+                    reviewAnswerArea.innerHTML = `<input type="text" id="user-answer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2">`;
+                    if (card.type === 'enumeration') {
+                        document.getElementById('user-answer').placeholder = `Answer 1 of ${card.answer.length}`;
+                    } else {
+                        document.getElementById('user-answer').placeholder = 'Type your answer here...'; // Identification
+                    }
+                    
 
                     // Check answer if the user presses enter key
                     document.getElementById('user-answer').addEventListener('keydown', function(event) {
@@ -536,64 +554,89 @@
                     userAnswer = checkedRadio ? checkedRadio.value : '';
                 }
                 if (!userAnswer) { alert("Please provide an answer."); return; }
-                if (card.type === 'enumeration' && answeredItems.items.includes(userAnswer.toLowerCase())) {
-                    alert(`${userAnswer} is already there.`); return;
-                }
                 
-                let isCorrect = false;
-                if (card.type === 'identification') {
-                    const allAnswers = [card.answer, ...(card.alternatives || [])].map(a => a.toLowerCase());
-                    isCorrect = allAnswers.includes(userAnswer.toLowerCase());
-                } else if (card.type === 'enumeration') {
-                    answeredItems.items.push(userAnswer.toLowerCase());
-                    isCorrect = card.answer.map(a => a.toLowerCase()).includes(userAnswer.toLowerCase());
+                if (card.type === 'enumeration') {
+                    const isOrdered = card.ordered || false;
+                    const lowerCaseCorrectAnswers = card.answer.map(a => a.toLowerCase());
+                    const userAnswerLower = userAnswer.toLowerCase();
 
-                    // Show if answer is correct or incorrect
+                    // Prevent duplicate correct entries for unordered lists
+                    if (!isOrdered && answeredItems.items.includes(userAnswerLower)) {
+                        alert(`You have already entered "${userAnswer}".`);
+                        document.getElementById('user-answer').value = "";
+                        return;
+                    }
+
+                    let isItemCorrect = false;
+
+                    if (isOrdered) {
+                        const nextCorrectIndex = answeredItems.items.length;
+                        // Check if the user's answer matches the next item in the correct sequence
+                        if (nextCorrectIndex < lowerCaseCorrectAnswers.length && userAnswerLower === lowerCaseCorrectAnswers[nextCorrectIndex]) {
+                            isItemCorrect = true;
+                        }
+                    } else {
+                        // For unordered, check if the answer is in the list and hasn't been given yet
+                        if (lowerCaseCorrectAnswers.includes(userAnswerLower) && !answeredItems.items.includes(userAnswerLower)) {
+                            isItemCorrect = true;
+                        }
+                    }
+
                     const wrapper = document.createElement('div');
                     wrapper.className = 'inline-block bg-gray-50 m-1 p-1 rounded-md border border-gray-200';
-                    if (isCorrect) {
+
+                    answeredItems.items.push(userAnswerLower); // Add this answer to the list of your answers
+                    if (isItemCorrect) {
                         wrapper.textContent = `✅ ${userAnswer}`;
                         wrapper.classList.add('text-green-600');
                     } else {
-                        let correctAnswerText = card.answer;
-                        if (card.type === 'identification' && card.alternatives && card.alternatives.length > 0) {
-                            correctAnswerText = [card.answer, ...card.alternatives].join(' / ');
-                        }
                         wrapper.textContent = `❌ ${userAnswer}`;
                         wrapper.classList.add('text-red-600');
-
-                        // Mark enumeration question as wrong
-                        answeredItems.correct = false;
+                        answeredItems.correct = false; // Mark the whole card as incorrect
                     }
                     
                     feedbackMessage.appendChild(wrapper);
 
+                    // Check if the card is complete (all items have been correctly identified)
                     if (answeredItems.items.length >= card.answer.length) {
-                        const wrapper = document.createElement('div');
-                        if (answeredItems.correct) {
-                            wrapper.textContent = "✅ All correct! Great job!";
-                            wrapper.classList.add('text-green-600');
+                        const finalWrapper = document.createElement('div');
+                        finalWrapper.className = 'mt-2';
 
+                        if (answeredItems.correct) {
+                            finalWrapper.textContent = "✅ All correct! Great job!";
+                            finalWrapper.classList.add('text-green-600');
+                            // Move card to 'forLater'
                             const cardToMoveIndex = flashcards.findIndex(fc => fc.id === card.id);
                             if(cardToMoveIndex > -1) {
                                 forLater.push(flashcards[cardToMoveIndex]);
                                 flashcards.splice(cardToMoveIndex, 1);
                             }
                         } else {
-                            let correctAnswerText = card.answer.join(', ');
-                            wrapper.textContent = `❌ Not quite. The correct answers are: ${correctAnswerText}`;
-                            wrapper.classList.add('text-red-600');
+                            if (isOrdered) {
+                                let correctAnswerText = card.answer.join(' → ');
+                                finalWrapper.textContent = `❌ Not quite. The correct sequence is: ${correctAnswerText}`;
+                            } else {
+                                let correctAnswerText = card.answer.join(', ');
+                                finalWrapper.textContent = `❌ Not quite. The correct answers are: ${correctAnswerText}`;
+                            }
+                            finalWrapper.classList.add('text-red-600');
                         }
-                        feedbackMessage.appendChild(wrapper);
+                        feedbackMessage.appendChild(finalWrapper);
 
                         submitAnswerBtn.classList.add('hidden');
                         nextCardBtn.classList.remove('hidden');
                     } else {
-                        // Clear input
+                        document.getElementById('user-answer').placeholder = `Answer ${answeredItems.items.length + 1} of ${card.answer.length}`;
                         document.getElementById('user-answer').value = "";
                     }
-                    return;
-                } else {
+                    return; // Exit function after handling enumeration
+                }
+                
+                let isCorrect = false;
+                if (card.type === 'identification') {
+                    const allAnswers = [card.answer, ...(card.alternatives || [])].map(a => a.toLowerCase());
+                    isCorrect = allAnswers.includes(userAnswer.toLowerCase());
+                } else { // This will now only handle multiple-choice
                     isCorrect = userAnswer === card.answer;
                 }
 
@@ -671,14 +714,15 @@
                 editQuestion.value = card.question;
                 editQuestionType.value = card.type;
 
-                // Display answer
+                toggleQuestionTypeFields(card.type, editMcOptionsContainer, editAlternativesContainer, editAnswerItemContainers);
+                
                 if (card.type === 'enumeration') {
-                    setupDynamicList(editEnumItemsList, editAddItemBtn, 'Item', card.answer || [""]);
+                    setupDynamicList(editEnumItemsList, editAddItemBtn, 'Item', card.answer || ["", "", ""]);
+                    document.getElementById('edit-enumeration-order').checked = card.ordered || false;
                 } else {
                     editAnswer.value = card.answer;
                 }
 
-                toggleQuestionTypeFields(card.type, editMcOptionsContainer, editAlternativesContainer, editAnswerItemContainers);
                 if (card.type === 'multiple-choice') {
                     setupDynamicList(editMcOptionsList, editAddOptionBtn, 'Choice', card.options || ["", ""]);
                 } else if (card.type === 'identification') {
@@ -694,19 +738,20 @@
                 const sourceArray = source === 'flashcards' ? flashcards : forLater;
                 const cardIndex = sourceArray.findIndex(c => c.id === id);
                 if (cardIndex === -1) return;
+
                 const updatedCard = { ...sourceArray[cardIndex] };
                 updatedCard.question = editQuestion.value.trim();
                 updatedCard.type = editQuestionType.value;
+                updatedCard.alternatives = [];
+                delete updatedCard.options;
 
-                // Update answers
                 if (updatedCard.type === 'enumeration') {
                     updatedCard.answer = [...editAnswerItemContainers.itemsElem.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
+                    updatedCard.ordered = document.getElementById('edit-enumeration-order').checked;
                 } else {
                     updatedCard.answer = editAnswer.value.trim();
                 }
 
-                updatedCard.alternatives = [];
-                delete updatedCard.options;
                 if (updatedCard.type === 'multiple-choice') {
                     const options = [...editMcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
                     if (options.length < 2) { alert('Please provide at least two choices.'); return; }
@@ -739,11 +784,11 @@
             // --- INITIALIZE ---
             toggleQuestionTypeFields('identification', mcOptionsContainer, alternativesContainer, answerItemContainers);
             setupDynamicList(mcOptionsList, addOptionBtn, 'Choice', ["", ""]);
-            setupDynamicList(enumItemsList, addItemBtn, 'Item', [""]);
+            setupDynamicList(enumItemsList, addItemBtn, 'Item', ["", "", ""]);
             setupDynamicList(alternativesList, addAlternativeBtn, 'Alternative', []);
 
             setupDynamicList(editMcOptionsList, editAddOptionBtn, 'Choice', ["", ""]);
-            setupDynamicList(editEnumItemsList, editAddItemBtn, 'Item', [""]);
+            setupDynamicList(editEnumItemsList, editAddItemBtn, 'Item', ["", "", ""]);
             setupDynamicList(editAlternativesList, editAddAlternativeBtn, 'Alternative', []);
             switchView('create-view');
         });
