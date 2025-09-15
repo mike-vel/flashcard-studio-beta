@@ -1,5 +1,5 @@
 # Flashcard Studio (Beta)
-**A website that offers a great way to retain information.** By promoting active recall, you can make sure that you do not forget the information that you learned.
+**Flashcard Studio offers a great way to retain information**, from memorizing names to dates and other relevant information. By promoting active recall, you can ensure that you don’t forget the information that you learned.
 
 ## Features:
  - Create questions (identification & enumeration)
