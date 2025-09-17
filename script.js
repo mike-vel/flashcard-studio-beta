@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let cardToRemove = { id: null, source: null };
 
     // --- DOM ELEMENTS ---
+    // const mainContainer = document.getElementById('main-container');
     const navCreate = [document.getElementById('nav-create'), document.querySelector('.add-card')];
     const navReview = document.getElementById('nav-review');
     const navLater = document.getElementById('nav-later');
@@ -76,10 +77,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const editAlternativesList = document.getElementById('edit-alternatives-list');
     const editAddAlternativeBtn = document.getElementById('edit-add-alternative-btn');
 
-    // Confirm Modal
+    // Confirm & Alert Modals
     const confirmModal = document.getElementById('confirm-modal');
     const cancelRemoveBtn = document.getElementById('cancel-remove-btn');
     const confirmRemoveBtn = document.getElementById('confirm-remove-btn');
+    const alertModal = document.getElementById('alert-modal');
+    const alertMessage = document.getElementById('alert-message');
+    const alertOkBtn = document.getElementById('alert-ok-btn');
+
+    // --- CUSTOM ALERT ---
+    function showAlert(message) {
+        alertMessage.textContent = message;
+        alertModal.classList.add('active');
+    }
+    alertOkBtn.addEventListener('click', () => {
+        alertModal.classList.remove('active');
+    });
+
+    // --- Escape Unsafe HTML Characters ---
+    function escapeHTML(str) {
+        const replacements = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;' // or &apos;
+        };
+        return str.replace(/[&<>"']/g, char => replacements[char]);
+    }
 
     // --- NAVIGATION ---
     function switchView(viewId) {
@@ -118,11 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
         removeBtn.innerHTML = '&times;';
         removeBtn.className = 'text-red-500 font-bold text-2xl hover:text-red-700';
         removeBtn.onclick = () => {
-            // Prevent removing below minimum of 2 for MC questions
+            // Prevent removing below minimum of 2 for MC questions or 1 for Enum item
             if (placeholderPrefix === 'Choice' && list.children.length <= 2) {
-                alert("A multiple choice question must have at least two choices.");
+                showAlert("A multiple choice question must have at least two choices.");
             } else if (placeholderPrefix === 'Item' && list.children.length <= 1) {
-                alert("An enumeration question must have at least one item.");
+                showAlert("An enumeration question must have at least one item.");
             }  else {
                 wrapper.remove();
                 updateInputPlaceholders(list, placeholderPrefix);
@@ -179,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type === 'enumeration') {
             answer = [...answerItemContainers.itemsElem.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
             if (!question || answer.length < 1) {
-                alert('Please fill in the question and at least one item.'); return;
+                showAlert('Please fill in the question and at least one item.'); return;
             }
             
             let isOrdered = document.getElementById('enumeration-order').checked;
@@ -189,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let sortedAnswer = [...answer].sort();
                 for (let i = 1; i < answer.length; i++) {
                     if (sortedAnswer[i - 1] === sortedAnswer[i]) {
-                        alert('Make sure that there are no duplicate items.'); return;
+                        showAlert('Make sure that there are no duplicate items.'); return;
                     }
                 }
             }
@@ -198,21 +223,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             answer = answerInput.value.trim();
             if (!question || !answer) {
-                alert('Please fill in the question and answer.'); return;
+                showAlert('Please fill in the question and answer.'); return;
             }
             newCard.answer = answer;
         }
 
         if (type === 'multiple-choice') {
             const options = [...mcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
-            if (options.length < 2) { alert('Please provide at least two choices.'); return; }
-            if (!options.includes(answer)) { alert('The correct answer must be one of the choices.'); return; }
+            if (options.length < 2) { showAlert('Please provide at least two choices.'); return; }
+            if (!options.includes(answer)) { showAlert('The correct answer must be one of the choices.'); return; }
             newCard.options = options;
         } else if (type === 'identification') {
             newCard.alternatives = [...alternativesList.querySelectorAll('.dynamic-input')].map(alt => alt.value.trim()).filter(Boolean);
         }
         flashcards.push(newCard);
-        alert('Flashcard created!');
+        showAlert('Flashcard created!');
         createForm.reset();
         toggleQuestionTypeFields('identification', mcOptionsContainer, alternativesContainer, answerItemContainers);
         setupDynamicList(mcOptionsList, addOptionBtn, 'Choice', ["", ""]);
@@ -277,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reviewQuestion.textContent = card.question;
         reviewAnswerArea.innerHTML = '';
         feedbackMessage.innerHTML = ''; // Use innerHTML to clear divs
-        feedbackMessage.className = 'mt-4 font-semibold';
+        feedbackMessage.className = 'mt-4 font-medium p-3 rounded-lg'; // Reset and apply base styles
 
         if (card.type !== 'multiple-choice') {
             // For identification and enumeration
@@ -308,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const shuffledOptions = [...card.options].sort(() => Math.random() - 0.5);
             let optionsHTML = '<div class="space-y-2">';
             shuffledOptions.forEach((option, index) => {
-                optionsHTML += `<div class="flex items-center"><input id="mc-${index}" name="mc-answer" type="radio" value="${option}" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"><label for="mc-${index}" class="ml-3 block text-sm font-medium text-gray-700">${option}</label></div>`;
+                optionsHTML += `<div class="flex items-center"><input id="mc-${index}" name="mc-answer" type="radio" value="${escapeHTML(option)}" class="h-4 w-4 text-blue-600 border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300"><label for="mc-${index}" class="ml-3 block text-sm font-medium text-gray-700">${escapeHTML(option)}</label></div>`;
             });
             optionsHTML += '</div>';
             reviewAnswerArea.innerHTML = optionsHTML;
@@ -322,13 +347,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = currentReviewDeck[currentCardIndex];
         let userAnswer;
         if (card.type !== 'multiple-choice') {
-            // For identification and enumeration
+            // Identification and enumeration
             userAnswer = document.getElementById('user-answer').value.trim();
         } else {
             const checkedRadio = document.querySelector('input[name="mc-answer"]:checked');
             userAnswer = checkedRadio ? checkedRadio.value : '';
         }
-        if (!userAnswer) { alert("Please provide an answer."); return; }
+        if (!userAnswer) { showAlert("Please provide an answer."); return; }
         
         if (card.type === 'enumeration') {
             const isOrdered = card.ordered || false;
@@ -337,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Prevent duplicate correct entries for unordered lists
             if (!isOrdered && answeredItems.items.includes(userAnswerLower)) {
-                alert(`You have already entered "${userAnswer}".`);
+                showAlert(`You have already entered "${userAnswer}".`);
                 document.getElementById('user-answer').value = "";
                 return;
             }
@@ -417,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isCorrect) {
             feedbackMessage.textContent = "✅ Correct! Great job!";
-            feedbackMessage.classList.add('text-green-600');
+            feedbackMessage.classList.add('bg-green-100', 'text-green-700');
             const cardToMoveIndex = flashcards.findIndex(fc => fc.id === card.id);
             if(cardToMoveIndex > -1) {
                 forLater.push(flashcards[cardToMoveIndex]);
@@ -428,8 +453,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (card.type === 'identification' && card.alternatives && card.alternatives.length > 0) {
                 correctAnswerText = [card.answer, ...card.alternatives].join(' / ');
             }
-            feedbackMessage.textContent = `❌ Not quite. The correct answer is: ${correctAnswerText}`;
-            feedbackMessage.classList.add('text-red-600');
+            feedbackMessage.innerHTML = `❌ Not quite. The correct answer is: <strong>${escapeHTML(correctAnswerText)}</strong>`;
+            feedbackMessage.classList.add('bg-red-100', 'text-red-700');
         }
         submitAnswerBtn.classList.add('hidden');
         nextCardBtn.classList.remove('hidden');
@@ -447,12 +472,12 @@ document.addEventListener('DOMContentLoaded', () => {
         forLater = [];
         renderLaterList();
         renderReviewList();
-        alert("Cards moved back to the main review deck.");
+        showAlert("Cards moved back to the main review deck.");
         switchView('review-view');
     });
     importBtn.addEventListener('click', () => importFileInput.click());
     exportBtn.addEventListener('click', () => {
-        if (flashcards.length === 0 && forLater.length === 0) { alert("No cards to export."); return; }
+        if (flashcards.length === 0 && forLater.length === 0) { showAlert("No cards to export."); return; }
         const data = JSON.stringify({ flashcards, forLater }, null, 2);
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -471,9 +496,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     flashcards = data.flashcards;
                     forLater = data.forLater;
                     renderReviewList(); renderLaterList();
-                    alert('Flashcards imported successfully!');
-                } else { alert('Invalid JSON file format.'); }
-            } catch (error) { alert('Error reading or parsing the file.'); }
+                    showAlert('Flashcards imported successfully!');
+                } else { showAlert('Invalid JSON file format.'); }
+            } catch (error) { showAlert('Error reading or parsing the file.'); }
         };
         reader.readAsText(file);
         importFileInput.value = '';
@@ -529,8 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (updatedCard.type === 'multiple-choice') {
             const options = [...editMcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
-            if (options.length < 2) { alert('Please provide at least two choices.'); return; }
-            if (!options.includes(updatedCard.answer)) { alert('The correct answer must be one of the choices.'); return; }
+            if (options.length < 2) { showAlert('Please provide at least two choices.'); return; }
+            if (!options.includes(updatedCard.answer)) { showAlert('The correct answer must be one of the choices.'); return; }
             updatedCard.options = options;
         } else if (updatedCard.type === 'identification') {
             updatedCard.alternatives = [...editAlternativesList.querySelectorAll('.dynamic-input')].map(alt => alt.value.trim()).filter(Boolean);
