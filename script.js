@@ -177,11 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CARD CREATION ---
     function toggleQuestionTypeFields(type, mcContainer, altContainer, enumContainer) {
-        const isMc = type === 'multiple-choice';
-        mcContainer.classList.toggle('hidden', !isMc);
+        mcContainer.classList.toggle('hidden', type !== 'multiple-choice');
         altContainer.classList.toggle('hidden', type !== 'identification');
 
-        // If enumeration is selected, show enumeration list & hide answers
         const isEnum = type === 'enumeration';
         enumContainer.answerElem.classList.toggle('hidden', isEnum);
         enumContainer.itemsElem.classList.toggle('hidden', !isEnum);
@@ -196,10 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const question = questionInput.value.trim();
         const type = questionTypeSelect.value;
-
-        // Correct answer
-        let answer;
         const newCard = { id: Date.now(), question, type, alternatives: [] };
+        let answer;
 
         if (type === 'enumeration') {
             answer = [...answerItemContainers.itemsElem.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
@@ -211,11 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Check for duplicates if not ordered
             if (!isOrdered) {
-                let sortedAnswer = [...answer].sort();
-                for (let i = 1; i < answer.length; i++) {
-                    if (sortedAnswer[i - 1] === sortedAnswer[i]) {
-                        showAlert('Make sure that there are no duplicate items.'); return;
-                    }
+                const uniqueAnswers = new Set(answer.map(a => a.toLowerCase()));
+                if (uniqueAnswers.size !== answer.length) {
+                    showAlert('For unordered enumerations, please make sure there are no duplicate items.'); return;
                 }
             }
             newCard.answer = answer;
@@ -231,11 +225,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type === 'multiple-choice') {
             const options = [...mcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
             if (options.length < 2) { showAlert('Please provide at least two choices.'); return; }
-            if (!options.includes(answer)) { showAlert('The correct answer must be one of the choices.'); return; }
+            if (!options.map(o => o.toLowerCase()).includes(answer.toLowerCase())) { 
+                showAlert('The correct answer must be one of the choices.'); return; 
+            }
             newCard.options = options;
         } else if (type === 'identification') {
             newCard.alternatives = [...alternativesList.querySelectorAll('.dynamic-input')].map(alt => alt.value.trim()).filter(Boolean);
         }
+
         flashcards.push(newCard);
         showAlert('Flashcard created!');
         createForm.reset();
@@ -247,14 +244,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- CARD LIST RENDERING & MANAGEMENT ---
-    function renderReviewList() {
-        renderCardList(flashcards, reviewList, reviewListPlaceholder, 'flashcards');
-        startReviewBtn.classList.toggle('hidden', flashcards.length === 0);
-    }
-    function renderLaterList() {
-        renderCardList(forLater, laterList, laterPlaceholder, 'forLater');
-        reviewLaterBtn.classList.toggle('hidden', forLater.length === 0);
-    }
     function renderCardList(cardArray, listElement, placeholder, source) {
         listElement.innerHTML = '';
         if (cardArray.length === 0) {
@@ -284,6 +273,14 @@ document.addEventListener('DOMContentLoaded', () => {
             listElement.appendChild(cardEl);
         });
     }
+    function renderReviewList() {
+        renderCardList(flashcards, reviewList, reviewListPlaceholder, 'flashcards');
+        startReviewBtn.classList.toggle('hidden', flashcards.length === 0);
+    }
+    function renderLaterList() {
+        renderCardList(forLater, laterList, laterPlaceholder, 'forLater');
+        reviewLaterBtn.classList.toggle('hidden', forLater.length === 0);
+    }
 
     // --- REVIEW SESSION ---
     startReviewBtn.addEventListener('click', startReview);
@@ -303,46 +300,51 @@ document.addEventListener('DOMContentLoaded', () => {
         reviewAnswerArea.innerHTML = '';
         feedbackMessage.innerHTML = ''; // Use innerHTML to clear divs
         feedbackMessage.className = 'mt-4 font-medium p-3 rounded-lg'; // Reset and apply base styles
+        let userAnswerInput;
 
         if (card.type !== 'multiple-choice') {
             // For identification and enumeration
             reviewAnswerArea.innerHTML = `<input type="text" id="user-answer" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm custom-focus-ring sm:text-sm p-2">`;
-            if (card.type === 'enumeration') {
-                document.getElementById('user-answer').placeholder = `Answer 1 of ${card.answer.length}`;
-            } else {
-                document.getElementById('user-answer').placeholder = 'Type your answer here...'; // Identification
-            }
-            
 
-            // Check answer if the user presses enter key
-            document.getElementById('user-answer').addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    if (!submitAnswerBtn.classList.contains("hidden")) {
-                        // Check answer
-                        checkAnswer();
-                    } else {
-                        // Next card
-                        currentCardIndex++;
-                        answeredItems = { correct: true, items: [] };
-                        displayCard();
-                    }
-                }
-            });
+            userAnswerInput = document.getElementById('user-answer');
+            if (card.type === 'enumeration') {
+                userAnswerInput.placeholder = `Answer 1 of ${card.answer.length}`;
+            } else {
+                userAnswerInput.placeholder = 'Type your answer here...'; // Identification
+            }
+
+            userAnswerInput.focus();
         } else {
             const shuffledOptions = [...card.options].sort(() => Math.random() - 0.5);
-            let optionsHTML = '<div class="space-y-2">';
+            let optionsHTML = '<div id="user-answer" class="space-y-2">';
             shuffledOptions.forEach((option, index) => {
                 optionsHTML += `<div class="flex items-center"><input id="mc-${index}" name="mc-answer" type="radio" value="${escapeHTML(option)}" class="h-4 w-4 text-blue-600 border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300"><label for="mc-${index}" class="ml-3 block text-sm font-medium text-gray-700">${escapeHTML(option)}</label></div>`;
             });
             optionsHTML += '</div>';
             reviewAnswerArea.innerHTML = optionsHTML;
+
+            userAnswerInput = document.getElementById('user-answer');
+            document.getElementById('mc-0').focus(); // Focus the first choice
         }
+        userAnswerInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (!submitAnswerBtn.classList.contains("hidden")) checkAnswer();
+                else {
+                    // Next card
+                    currentCardIndex++;
+                    answeredItems = { correct: true, items: [] };
+                    displayCard();
+                }
+            }
+        });
+
         submitAnswerBtn.classList.remove('hidden');
         nextCardBtn.classList.add('hidden');
     }
     submitAnswerBtn.addEventListener('click', checkAnswer);
     nextCardBtn.addEventListener('click', () => { currentCardIndex++; answeredItems = { correct: true, items: [] }; displayCard(); });
+    
     function checkAnswer() {
         const card = currentReviewDeck[currentCardIndex];
         let userAnswer;
@@ -356,98 +358,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!userAnswer) { showAlert("Please provide an answer."); return; }
         
         if (card.type === 'enumeration') {
-            const isOrdered = card.ordered || false;
-            const lowerCaseCorrectAnswers = card.answer.map(a => a.toLowerCase());
-            const userAnswerLower = userAnswer.toLowerCase();
-
-            // Prevent duplicate correct entries for unordered lists
-            if (!isOrdered && answeredItems.items.includes(userAnswerLower)) {
-                showAlert(`You have already entered "${userAnswer}".`);
-                document.getElementById('user-answer').value = "";
-                return;
-            }
-
-            let isItemCorrect = false;
-
-            if (isOrdered) {
-                const nextCorrectIndex = answeredItems.items.length;
-                // Check if the user's answer matches the next item in the correct sequence
-                if (nextCorrectIndex < lowerCaseCorrectAnswers.length && userAnswerLower === lowerCaseCorrectAnswers[nextCorrectIndex]) {
-                    isItemCorrect = true;
-                }
-            } else {
-                // For unordered, check if the answer is in the list and hasn't been given yet
-                if (lowerCaseCorrectAnswers.includes(userAnswerLower) && !answeredItems.items.includes(userAnswerLower)) {
-                    isItemCorrect = true;
-                }
-            }
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'inline-block bg-gray-50 m-1 p-1 rounded-md border border-gray-200';
-
-            answeredItems.items.push(userAnswerLower); // Add this answer to the list of your answers
-            if (isItemCorrect) {
-                wrapper.textContent = `✅ ${userAnswer}`;
-                wrapper.classList.add('text-green-600');
-            } else {
-                wrapper.textContent = `❌ ${userAnswer}`;
-                wrapper.classList.add('text-red-600');
-                answeredItems.correct = false; // Mark the whole card as incorrect
-            }
-            
-            feedbackMessage.appendChild(wrapper);
-
-            // Check if the card is complete (all items have been correctly identified)
-            if (answeredItems.items.length >= card.answer.length) {
-                const finalWrapper = document.createElement('div');
-                finalWrapper.className = 'mt-2';
-
-                if (answeredItems.correct) {
-                    finalWrapper.textContent = "✅ All correct! Great job!";
-                    finalWrapper.classList.add('text-green-600');
-                    // Move card to 'forLater'
-                    const cardToMoveIndex = flashcards.findIndex(fc => fc.id === card.id);
-                    if(cardToMoveIndex > -1) {
-                        forLater.push(flashcards[cardToMoveIndex]);
-                        flashcards.splice(cardToMoveIndex, 1);
-                    }
-                } else {
-                    if (isOrdered) {
-                        let correctAnswerText = card.answer.join(' → ');
-                        finalWrapper.textContent = `❌ Not quite. The correct sequence is: ${correctAnswerText}`;
-                    } else {
-                        let correctAnswerText = card.answer.join(', ');
-                        finalWrapper.textContent = `❌ Not quite. The correct answers are: ${correctAnswerText}`;
-                    }
-                    finalWrapper.classList.add('text-red-600');
-                }
-                feedbackMessage.appendChild(finalWrapper);
-
-                submitAnswerBtn.classList.add('hidden');
-                nextCardBtn.classList.remove('hidden');
-            } else {
-                document.getElementById('user-answer').placeholder = `Answer ${answeredItems.items.length + 1} of ${card.answer.length}`;
-                document.getElementById('user-answer').value = "";
-            }
-            return; // Exit function after handling enumeration
+            handleEnumerationCheck(card, userAnswer);
+            return;
         }
         
         let isCorrect = false;
         if (card.type === 'identification') {
             const allAnswers = [card.answer, ...(card.alternatives || [])].map(a => a.toLowerCase());
             isCorrect = allAnswers.includes(userAnswer.toLowerCase());
-        } else { // This will now only handle multiple-choice
-            isCorrect = userAnswer === card.answer;
+        } else { // Multiple-choice
+            isCorrect = userAnswer.toLowerCase() === card.answer.toLowerCase();
         }
 
         if (isCorrect) {
             feedbackMessage.textContent = "✅ Correct! Great job!";
             feedbackMessage.classList.add('bg-green-100', 'text-green-700');
             const cardToMoveIndex = flashcards.findIndex(fc => fc.id === card.id);
-            if(cardToMoveIndex > -1) {
-                forLater.push(flashcards[cardToMoveIndex]);
-                flashcards.splice(cardToMoveIndex, 1);
-            }
+
+            if (cardToMoveIndex > -1) forLater.push(flashcards.splice(cardToMoveIndex, 1)[0]);
         } else {
             let correctAnswerText = card.answer;
             if (card.type === 'identification' && card.alternatives && card.alternatives.length > 0) {
@@ -458,7 +386,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         submitAnswerBtn.classList.add('hidden');
         nextCardBtn.classList.remove('hidden');
+        nextCardBtn.focus();
     }
+
+    function handleEnumerationCheck(card, userAnswer) {
+        const isOrdered = card.ordered || false;
+        const lowerCaseCorrectAnswers = card.answer.map(a => a.toLowerCase());
+        const userAnswerInput = document.getElementById('user-answer');
+        const userAnswerLower = userAnswer.toLowerCase();
+
+        // Prevent duplicate entries for unordered lists
+        if (!isOrdered && answeredItems.items.includes(userAnswerLower)) {
+            showAlert(`You have already entered "${userAnswer}".`);
+            userAnswerInput.value = "";
+            return;
+        }
+
+        let isItemCorrect = false;
+
+        if (isOrdered) {
+            const nextCorrectIndex = answeredItems.items.length;
+            // Check if the user's answer matches the next item in the correct sequence
+            if (nextCorrectIndex < lowerCaseCorrectAnswers.length && userAnswerLower === lowerCaseCorrectAnswers[nextCorrectIndex]) {
+                isItemCorrect = true;
+            }
+        } else {
+            // For unordered, check if the answer is in the list and hasn't been given yet
+            if (lowerCaseCorrectAnswers.includes(userAnswerLower) && !answeredItems.items.includes(userAnswerLower)) {
+                isItemCorrect = true;
+            }
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'inline-block bg-gray-50 m-1 p-1 rounded-md border border-gray-200';
+
+        wrapper.textContent = `${isItemCorrect ? '✅' : '❌'} ${userAnswer}`;
+        wrapper.classList.add(isItemCorrect ? 'text-green-600' : 'text-red-600');
+
+        answeredItems.items.push(userAnswerLower); // Add this answer to the list of your answers
+        if (!isItemCorrect) answeredItems.correct = false; // If the item is wrong, mark the whole card as incorrect
+        
+        feedbackMessage.appendChild(wrapper);
+
+        // Check if the card is complete (all items have been correctly identified)
+        if (answeredItems.items.length >= card.answer.length) {
+            const finalWrapper = document.createElement('div');
+            finalWrapper.className = 'mt-2 font-medium p-3 rounded-lg';
+
+            if (answeredItems.correct) {
+                finalWrapper.textContent = "✅ All correct! Great job!";
+                finalWrapper.classList.add('bg-green-100', 'text-green-700');
+                // Move card to 'forLater'
+                const cardToMoveIndex = flashcards.findIndex(fc => fc.id === card.id);
+                if(cardToMoveIndex > -1) {
+                    forLater.push(flashcards[cardToMoveIndex]);
+                    flashcards.splice(cardToMoveIndex, 1);
+                }
+            } else {
+                let correctAnswerText = card.answer.map(a => escapeHTML(a)).join(isOrdered ? ' → ' : ', ');
+                finalWrapper.innerHTML = `Not quite. The correct answer${isOrdered ? ' sequence' : 's are'}: <strong>${correctAnswerText}</strong>`;
+                finalWrapper.classList.add('bg-red-100', 'text-red-700');
+            }
+            feedbackMessage.appendChild(finalWrapper);
+
+            submitAnswerBtn.classList.add('hidden');
+            nextCardBtn.classList.remove('hidden');
+            nextCardBtn.focus();
+        } else {
+            userAnswerInput.placeholder = `Answer ${answeredItems.items.length + 1} of ${card.answer.length}`;
+            userAnswerInput.value = "";
+            userAnswerInput.focus();
+        }
+    }
+
     function endReviewSession() {
         reviewManagementArea.style.display = 'block';
         reviewCardContainer.classList.add('hidden');
@@ -555,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (updatedCard.type === 'multiple-choice') {
             const options = [...editMcOptionsList.querySelectorAll('.dynamic-input')].map(opt => opt.value.trim()).filter(Boolean);
             if (options.length < 2) { showAlert('Please provide at least two choices.'); return; }
-            if (!options.includes(updatedCard.answer)) { showAlert('The correct answer must be one of the choices.'); return; }
+            if (!options.map(o=>o.toLowerCase()).includes(updatedCard.answer.toLowerCase())) { showAlert('The correct answer must be one of the choices.'); return; }
             updatedCard.options = options;
         } else if (updatedCard.type === 'identification') {
             updatedCard.alternatives = [...editAlternativesList.querySelectorAll('.dynamic-input')].map(alt => alt.value.trim()).filter(Boolean);
