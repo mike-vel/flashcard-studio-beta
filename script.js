@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- LIBRARIES ---
+    MicroModal.init({openClass: 'active', disableScroll: true});
+
     // --- STATE MANAGEMENT ---
     let flashcards = [];
     let forLater = [];
@@ -77,22 +80,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const editAlternativesList = document.getElementById('edit-alternatives-list');
     const editAddAlternativeBtn = document.getElementById('edit-add-alternative-btn');
 
+    MicroModal.initModal(editModal, {});
+
     // Confirm & Alert Modals
     const confirmModal = document.getElementById('confirm-modal');
     const cancelRemoveBtn = document.getElementById('cancel-remove-btn');
     const confirmRemoveBtn = document.getElementById('confirm-remove-btn');
     const alertModal = document.getElementById('alert-modal');
     const alertMessage = document.getElementById('alert-message');
-    const alertOkBtn = document.getElementById('alert-ok-btn');
+
+    MicroModal.initModal(confirmModal, {});
+    MicroModal.initModal(alertModal, {});
 
     // --- CUSTOM ALERT ---
     function showAlert(message) {
         alertMessage.textContent = message;
-        alertModal.classList.add('active');
+        MicroModal.show(alertModal);
     }
-    alertOkBtn.addEventListener('click', () => {
-        alertModal.classList.remove('active');
-    });
 
     // --- Escape Unsafe HTML Characters ---
     function escapeHTML(str) {
@@ -528,9 +532,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (card.type === 'identification') {
             setupDynamicList(editAlternativesList, editAddAlternativeBtn, 'Alternative', card.alternatives || []);
         }
-        editModal.classList.add('active');
+        MicroModal.show(editModal);
     }
-    cancelEditBtn.addEventListener('click', () => editModal.classList.remove('active'));
     editForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const id = parseInt(editCardId.value);
@@ -561,14 +564,13 @@ document.addEventListener('DOMContentLoaded', () => {
             updatedCard.alternatives = [...editAlternativesList.querySelectorAll('.dynamic-input')].map(alt => alt.value.trim()).filter(Boolean);
         }
         sourceArray[cardIndex] = updatedCard;
-        editModal.classList.remove('active');
+        MicroModal.close(editModal);
         if (source === 'flashcards') renderReviewList(); else renderLaterList();
     });
     function openConfirmModal(id, source) {
         cardToRemove = { id, source };
-        confirmModal.classList.add('active');
+        MicroModal.show(confirmModal);
     }
-    cancelRemoveBtn.addEventListener('click', () => confirmModal.classList.remove('active'));
     confirmRemoveBtn.addEventListener('click', () => {
         const { id, source } = cardToRemove;
         if (source === 'flashcards') {
@@ -578,7 +580,6 @@ document.addEventListener('DOMContentLoaded', () => {
             forLater = forLater.filter(c => c.id !== id);
             renderLaterList();
         }
-        confirmModal.classList.remove('active');
     });
 
     // --- INITIALIZE ---

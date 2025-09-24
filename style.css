@@ -22,15 +22,31 @@ body {
 }
 .modal {
     display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
     animation: fadeIn 0.3s;
 }
 .modal.active {
+    display: block;
+}
+.modal-body-container {
     display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 100vh;
 }
 .modal-body {
-    max-height: 80vh;
     overflow: auto;
 }
+.close-btn {
+    font-size: 1.5rem;
+    padding: 0 0.5rem;
+}
+.close-btn:before { content: "\2715"; }
+
 .input-wrapper {
     display: flex;
     align-items: center;
