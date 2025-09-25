@@ -112,16 +112,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NAVIGATION ---
     function switchView(viewId) {
+        // Update tab buttons
         views.forEach(view => view.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
         const navButtons = document.querySelectorAll('.nav-btn');
         navButtons.forEach(btn => {
             btn.classList.remove('active-tab', 'text-blue-600', 'border-blue-600');
             btn.classList.add('text-gray-500');
+            btn.ariaSelected = 'false';
         });
         const activeBtn = document.getElementById(`nav-${viewId.split('-')[0]}`);
         activeBtn.classList.add('active-tab', 'text-blue-600', 'border-blue-600');
         activeBtn.classList.remove('text-gray-500');
+        activeBtn.ariaSelected = 'true';
+
+        // Specific actions when switching tabs
         if (viewId === 'review-view') {
             reviewManagementArea.style.display = 'block';
             reviewCardContainer.classList.add('hidden');
@@ -181,12 +186,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CARD CREATION ---
     function toggleQuestionTypeFields(type, mcContainer, altContainer, enumContainer) {
+        // Show/hide relevant fields
         mcContainer.classList.toggle('hidden', type !== 'multiple-choice');
         altContainer.classList.toggle('hidden', type !== 'identification');
 
         const isEnum = type === 'enumeration';
         enumContainer.answerElem.classList.toggle('hidden', isEnum);
         enumContainer.itemsElem.classList.toggle('hidden', !isEnum);
+
+        // Adjust answer input requirements
+        const answerInput = enumContainer.answerElem.querySelector("input");
+        answerInput.required = !isEnum;
+        answerInput.ariaRequired = !isEnum;
     }
 
     questionTypeSelect.addEventListener('change', () => toggleQuestionTypeFields(
@@ -239,7 +250,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         flashcards.push(newCard);
         showAlert('Flashcard created!');
+
+        // Reset options, dynamic lists, and fields
         createForm.reset();
+        document.getElementById('enumeration-order').checked = false;
+        document.getElementById('enumeration-order').ariaChecked = false;
+
         toggleQuestionTypeFields('identification', mcOptionsContainer, alternativesContainer, answerItemContainers);
         setupDynamicList(mcOptionsList, addOptionBtn, 'Choice', ["", ""]);
         setupDynamicList(enumItemsList, addItemBtn, 'Item', ["", "", ""]);
@@ -522,7 +538,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (card.type === 'enumeration') {
             setupDynamicList(editEnumItemsList, editAddItemBtn, 'Item', card.answer || ["", "", ""]);
-            document.getElementById('edit-enumeration-order').checked = card.ordered || false;
+            let editEnumOrderCheckbox = document.getElementById('edit-enumeration-order');
+            editEnumOrderCheckbox.checked = card.ordered || false;
+            editEnumOrderCheckbox.ariaChecked = editEnumOrderCheckbox.checked;
         } else {
             editAnswer.value = card.answer;
         }
