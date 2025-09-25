@@ -3,7 +3,7 @@ body {
 }
 .view {
     display: none;
-    animation: fadeIn 0.5s;
+    animation: fadeIn 0.5s, swipeIn 0.5s;
 }
 .view.active {
     display: block;
@@ -13,8 +13,20 @@ body {
     overflow: auto;
 }
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+@keyframes swipeIn {
+    from { transform: translateY(10px); }
+    to { transform: translateY(0); }
+}
+@keyframes swipeOut {
+    from { transform: translateY(0); }
+    to { transform: translateY(-10px); }
 }
 .custom-focus-ring:focus {
     outline: none;
@@ -31,15 +43,23 @@ body {
 .modal.active {
     display: block;
 }
+.modal[aria-hidden="true"] {
+    animation: fadeOut 0.5s;
+}
 .modal-body-container {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     min-height: 100vh;
+    min-height: 100dvh; /* Prvents scrolling when modal fits in mobile browsers with address bar */
 }
 .modal-body {
     overflow: auto;
+    animation: swipeIn 0.3s;
+}
+.modal[aria-hidden="true"] .modal-body {
+    animation: swipeOut 0.5s;
 }
 .close-btn {
     font-size: 1.5rem;

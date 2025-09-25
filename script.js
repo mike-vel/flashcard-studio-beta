@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- LIBRARIES ---
-    MicroModal.init({openClass: 'active', disableScroll: true});
+    MicroModal.init({openClass: 'active', awaitCloseAnimation: true, disableScroll: true});
 
     // --- STATE MANAGEMENT ---
     let flashcards = [];
@@ -117,12 +117,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(viewId).classList.add('active');
         const navButtons = document.querySelectorAll('.nav-btn');
         navButtons.forEach(btn => {
-            btn.classList.remove('active-tab', 'text-blue-600', 'border-blue-600');
+            btn.classList.remove('active-tab', 'text-blue-600', 'border-b-2', 'border-blue-600');
             btn.classList.add('text-gray-500');
             btn.ariaSelected = 'false';
         });
         const activeBtn = document.getElementById(`nav-${viewId.split('-')[0]}`);
-        activeBtn.classList.add('active-tab', 'text-blue-600', 'border-blue-600');
+        activeBtn.classList.add('active-tab', 'text-blue-600', 'border-b-2', 'border-blue-600');
         activeBtn.classList.remove('text-gray-500');
         activeBtn.ariaSelected = 'true';
 
